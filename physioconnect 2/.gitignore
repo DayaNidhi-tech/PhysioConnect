@@ -1,0 +1,51 @@
+# ===== Build output =====
+target/
+build/
+*.class
+*.jar
+*.war
+*.ear
+
+# ===== Maven =====
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# ===== IDE - IntelliJ IDEA =====
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# ===== IDE - Eclipse =====
+.classpath
+.project
+.settings/
+bin/
+*.launch
+
+# ===== IDE - VS Code =====
+.vscode/
+*.code-workspace
+
+# ===== OS files =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Logs =====
+*.log
+logs/
+
+# ===== Environment / secrets =====
+.env
+.env.local
+application-local.properties
+application-prod.properties
+
+# ===== Auto-generated upgrade/migration tooling (not product code) =====
+.github/modernize/
+.github/java-upgrade/

@@ -50,8 +50,7 @@ public class Appointment {
     @Column(nullable = false, length = 20)
     private AppointmentStatus status = AppointmentStatus.PENDING_PAYMENT;
 
-    @Lob
-    @Column(name = "reason_for_visit")
+    @Column(name = "reason_for_visit", columnDefinition = "TEXT")
     private String reasonForVisit;
 
     @Column(nullable = false, precision = 10, scale = 2)

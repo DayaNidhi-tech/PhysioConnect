@@ -27,7 +27,7 @@ public class PhysioService {
     @Column(nullable = false, length = 150)
     private String name;
 
-    @Lob
+    @Column(columnDefinition = "TEXT")
     private String description;
 
     @Builder.Default

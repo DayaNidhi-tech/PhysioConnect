@@ -35,10 +35,10 @@ public class Review {
 
     @Min(1)
     @Max(5)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TINYINT")
     private Integer rating;
 
-    @Lob
+    @Column(columnDefinition = "TEXT")
     private String comment;
 
     @Builder.Default

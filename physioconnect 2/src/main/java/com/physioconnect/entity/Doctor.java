@@ -36,7 +36,7 @@ public class Doctor {
     @Column(name = "consultation_fee", nullable = false, precision = 10, scale = 2)
     private BigDecimal consultationFee;
 
-    @Lob
+    @Column(columnDefinition = "TEXT")
     private String bio;
 
     @Builder.Default
