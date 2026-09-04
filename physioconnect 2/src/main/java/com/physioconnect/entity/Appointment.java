@@ -53,6 +53,9 @@ public class Appointment {
     @Column(name = "reason_for_visit", columnDefinition = "TEXT")
     private String reasonForVisit;
 
+   @Column(name = "medical_history_notes", columnDefinition = "TEXT")
+    private String medicalHistoryNotes;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 
