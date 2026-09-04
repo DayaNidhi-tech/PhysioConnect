@@ -1,6 +1,7 @@
 package com.physioconnect.config;
 
 import com.physioconnect.security.ApiAccessDeniedHandler;
+import com.physioconnect.security.JwtAuthenticationFilter;
 import com.physioconnect.security.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,24 +14,17 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
-import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-/**
- * Server-side session token security.
- *
- * The client authenticates once via POST /api/auth/login; Spring Security then
- * stores the authenticated SecurityContext in the HTTP session keyed by the
- * JSESSIONID cookie (the "session token"). Subsequent requests carry that
- * cookie and the filter chain trusts it without re-sending credentials.
- *
- * CSRF is disabled because this is a stateless JSON API consumed by non-browser
- * clients (mobile/front-end that keeps the token), not a form-based web app.
- * Session fixation is mitigated by migrating the session id on authentication.
- */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -38,37 +32,48 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration config
+    ) throws Exception {
         return config.getAuthenticationManager();
     }
 
-    /** Shared repository so the login endpoint can persist the context to the same place the chain reads it. */
     @Bean
-    public SecurityContextRepository securityContextRepository() {
-        return new HttpSessionSecurityContextRepository();
-    }
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            RestAuthenticationEntryPoint entryPoint,
+            ApiAccessDeniedHandler accessDeniedHandler
+    ) throws Exception {
 
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http,
-                                           RestAuthenticationEntryPoint entryPoint,
-                                           ApiAccessDeniedHandler accessDeniedHandler,
-                                           SecurityContextRepository securityContextRepository) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
-                .logout(AbstractHttpConfigurer::disable) // logout handled explicitly in the auth controller
-                .securityContext(ctx -> ctx.securityContextRepository(securityContextRepository))
+                .logout(AbstractHttpConfigurer::disable)
+
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+
                 .authorizeHttpRequests(auth -> auth
-                        // Public: registration + the email verification link (clicked from email while logged out)
-                        .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/verify-email", "/error").permitAll()
-                        .anyRequest().authenticated())
-                .sessionManagement(sm -> sm
-                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
-                        .sessionFixation(sf -> sf.migrateSession()))
-                .exceptionHandling(eh -> eh
+                        .requestMatchers(
+                                "/api/auth/register",
+                                "/api/auth/login",
+                                "/api/auth/verify-email",
+                                "/error"
+                        ).permitAll()
+                        .anyRequest().authenticated()
+                )
+
+                .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(entryPoint)
-                        .accessDeniedHandler(accessDeniedHandler));
+                        .accessDeniedHandler(accessDeniedHandler)
+                )
+
+                .addFilterBefore(
+                        jwtAuthenticationFilter,
+                        UsernamePasswordAuthenticationFilter.class
+                );
 
         return http.build();
     }
