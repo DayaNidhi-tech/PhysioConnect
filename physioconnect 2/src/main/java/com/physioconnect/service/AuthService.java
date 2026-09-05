@@ -32,12 +32,13 @@ public class AuthService {
 
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public AuthService(UserRepository userRepository,
-                       EmailVerificationTokenRepository tokenRepository,
-                       PasswordEncoder passwordEncoder,
-                       MailService mailService,
-                       @Value("${app.base-url}") String baseUrl) {
-
+    public AuthService(
+            UserRepository userRepository,
+            EmailVerificationTokenRepository tokenRepository,
+            PasswordEncoder passwordEncoder,
+            MailService mailService,
+            @Value("${app.base-url}") String baseUrl
+    ) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
         this.passwordEncoder = passwordEncoder;
@@ -48,7 +49,9 @@ public class AuthService {
     @Transactional
     public User register(RegisterRequest request) {
 
-        String email = request.email().trim().toLowerCase();
+        String email = request.email()
+                .trim()
+                .toLowerCase();
 
         String phone = request.phone();
 
@@ -76,9 +79,14 @@ public class AuthService {
                 .fullName(request.fullName().trim())
                 .email(email)
                 .phone(phone)
-                .passwordHash(passwordEncoder.encode(request.password()))
+                .passwordHash(
+                        passwordEncoder.encode(request.password())
+                )
                 .role(request.effectiveRole())
-                .isActive(true)
+
+                // Account remains inactive until email verification.
+                .isActive(false)
+
                 .isEmailVerified(false)
                 .build();
 
@@ -99,13 +107,15 @@ public class AuthService {
         EmailVerificationToken token = EmailVerificationToken.builder()
                 .user(user)
                 .token(generateToken())
-                .expiresAt(now.plusHours(TOKEN_TTL_HOURS))
+                .expiresAt(
+                        now.plusHours(TOKEN_TTL_HOURS)
+                )
                 .build();
 
         tokenRepository.save(token);
 
         String link = baseUrl
-                + "/api/auth/verify-email?token="
+                + "/api/v1/auth/verify-email?token="
                 + token.getToken();
 
         String body = "Hi " + user.getFullName() + ",\n\n"
@@ -142,7 +152,10 @@ public class AuthService {
 
         User user = token.getUser();
 
+        // Email verification completes account activation.
         user.setIsEmailVerified(true);
+        user.setIsActive(true);
+
         token.setUsedAt(LocalDateTime.now());
 
         userRepository.save(user);
@@ -155,9 +168,13 @@ public class AuthService {
     public User getByEmail(String email) {
 
         return userRepository
-                .findByEmail(email.trim().toLowerCase())
+                .findByEmail(
+                        email.trim().toLowerCase()
+                )
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("User not found")
+                        new ResourceNotFoundException(
+                                "User not found"
+                        )
                 );
     }
 
