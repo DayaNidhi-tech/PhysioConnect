@@ -22,7 +22,9 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter
+    ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
@@ -47,22 +49,31 @@ public class SecurityConfig {
 
         http
                 .csrf(AbstractHttpConfigurer::disable)
+
                 .httpBasic(AbstractHttpConfigurer::disable)
+
                 .formLogin(AbstractHttpConfigurer::disable)
+
                 .logout(AbstractHttpConfigurer::disable)
 
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        .sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
                 )
 
                 .authorizeHttpRequests(auth -> auth
+
                         .requestMatchers(
-                                "/api/auth/register",
-                                "/api/auth/login",
-                                "/api/auth/verify-email",
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/verify-email",
                                 "/error"
-                        ).permitAll()
-                        .anyRequest().authenticated()
+                        )
+                        .permitAll()
+
+                        .anyRequest()
+                        .authenticated()
                 )
 
                 .exceptionHandling(exception -> exception
