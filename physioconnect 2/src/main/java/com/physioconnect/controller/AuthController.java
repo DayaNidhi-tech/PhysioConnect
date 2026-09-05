@@ -1,94 +1,248 @@
 package com.physioconnect.controller;
 
+import com.physioconnect.dto.ApiResponse;
+import com.physioconnect.dto.AuthResponse;
 import com.physioconnect.dto.LoginRequest;
 import com.physioconnect.dto.RegisterRequest;
-import com.physioconnect.dto.UserResponse;
+import com.physioconnect.dto.RegisterResponse;
+import com.physioconnect.dto.TokenResponse;
+import com.physioconnect.entity.RefreshToken;
 import com.physioconnect.entity.User;
+import com.physioconnect.security.JwtService;
 import com.physioconnect.security.UserPrincipal;
 import com.physioconnect.service.AuthService;
-import jakarta.servlet.http.HttpServletRequest;
+import com.physioconnect.service.RefreshTokenService;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.context.SecurityContextRepository;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.Duration;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 public class AuthController {
+
+    private static final String REFRESH_TOKEN_COOKIE =
+            "physioconnect_refresh_token";
 
     private final AuthService authService;
     private final AuthenticationManager authenticationManager;
-    private final SecurityContextRepository securityContextRepository;
+    private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
 
-    public AuthController(AuthService authService,
-                          AuthenticationManager authenticationManager,
-                          SecurityContextRepository securityContextRepository) {
+    public AuthController(
+            AuthService authService,
+            AuthenticationManager authenticationManager,
+            JwtService jwtService,
+            RefreshTokenService refreshTokenService
+    ) {
         this.authService = authService;
         this.authenticationManager = authenticationManager;
-        this.securityContextRepository = securityContextRepository;
+        this.jwtService = jwtService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @PostMapping("/register")
-    public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<ApiResponse<RegisterResponse>> register(
+            @Valid @RequestBody RegisterRequest request
+    ) {
         User user = authService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(user));
+
+        RegisterResponse response = new RegisterResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getRole().name(),
+                null,
+                false
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(ApiResponse.success(response));
     }
 
-    /**
-     * Clicked from the verification email while logged out, so it is public.
-     * GET (not POST) so it works as a plain link in mail clients.
-     */
     @GetMapping("/verify-email")
-    public ResponseEntity<UserResponse> verifyEmail(@RequestParam("token") String token) {
+    public ResponseEntity<ApiResponse<AuthResponse.Profile>> verifyEmail(
+            @RequestParam("token") String token
+    ) {
         User user = authService.verifyEmail(token);
-        return ResponseEntity.ok(UserResponse.from(user));
+
+        AuthResponse.Profile profile = new AuthResponse.Profile(
+                user.getId(),
+                user.getFullName(),
+                user.getEmail()
+        );
+
+        return ResponseEntity.ok(ApiResponse.success(profile));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request,
-                                              HttpServletRequest httpRequest,
-                                              HttpServletResponse httpResponse) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.email().toLowerCase().trim(), request.password()));
+    public ResponseEntity<ApiResponse<AuthResponse>> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletResponse response
+    ) {
+        String email = request.email()
+                .trim()
+                .toLowerCase();
 
-        // Persist the authenticated context into the HTTP session: the
-        // JSESSIONID cookie becomes the session token for subsequent requests.
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(authentication);
-        SecurityContextHolder.setContext(context);
-        securityContextRepository.saveContext(context, httpRequest, httpResponse);
+        Authentication authentication =
+                authenticationManager.authenticate(
+                        new UsernamePasswordAuthenticationToken(
+                                email,
+                                request.password()
+                        )
+                );
 
-        return ResponseEntity.ok(UserResponse.from(authService.getByEmail(request.email().toLowerCase().trim())));
+        User user = authService.getByEmail(email);
+
+        String accessToken =
+                jwtService.generateAccessToken(user);
+
+        RefreshToken refreshToken =
+                refreshTokenService.createRefreshToken(user);
+
+        addRefreshTokenCookie(
+                response,
+                refreshToken.getToken()
+        );
+
+        AuthResponse authResponse = new AuthResponse(
+                accessToken,
+                user.getRole().name(),
+                new AuthResponse.Profile(
+                        user.getId(),
+                        user.getFullName(),
+                        user.getEmail()
+                )
+        );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(authResponse)
+        );
     }
 
-    /** Protected endpoint used to confirm the session token is accepted. */
+    @PostMapping("/refresh-token")
+    public ResponseEntity<ApiResponse<TokenResponse>> refreshToken(
+            @CookieValue(
+                    name = REFRESH_TOKEN_COOKIE,
+                    required = false
+            )
+            String rawRefreshToken,
+            HttpServletResponse response
+    ) {
+        RefreshToken newRefreshToken =
+                refreshTokenService.rotate(rawRefreshToken);
+
+        User user = newRefreshToken.getUser();
+
+        String accessToken =
+                jwtService.generateAccessToken(user);
+
+        addRefreshTokenCookie(
+                response,
+                newRefreshToken.getToken()
+        );
+
+        TokenResponse tokenResponse = new TokenResponse(
+                accessToken,
+                user.getRole().name(),
+                new AuthResponse.Profile(
+                        user.getId(),
+                        user.getFullName(),
+                        user.getEmail()
+                )
+        );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(tokenResponse)
+        );
+    }
+
     @GetMapping("/me")
-    public ResponseEntity<UserResponse> me(@AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(UserResponse.from(authService.getByEmail(principal.getUsername())));
+    public ResponseEntity<ApiResponse<AuthResponse.Profile>> me(
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        User user =
+                authService.getByEmail(principal.getUsername());
+
+        AuthResponse.Profile profile = new AuthResponse.Profile(
+                user.getId(),
+                user.getFullName(),
+                user.getEmail()
+        );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(profile)
+        );
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(HttpServletRequest request) {
-        SecurityContextHolder.clearContext();
-        HttpSession session = request.getSession(false);
-        if (session != null) {
-            session.invalidate();
-        }
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @CookieValue(
+                    name = REFRESH_TOKEN_COOKIE,
+                    required = false
+            )
+            String rawRefreshToken,
+            HttpServletResponse response
+    ) {
+        refreshTokenService.revoke(rawRefreshToken);
+
+        clearRefreshTokenCookie(response);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(null)
+        );
+    }
+
+    private void addRefreshTokenCookie(
+            HttpServletResponse response,
+            String token
+    ) {
+        ResponseCookie cookie = ResponseCookie
+                .from(
+                        REFRESH_TOKEN_COOKIE,
+                        token
+                )
+                .httpOnly(true)
+                .secure(false)
+                .sameSite("Strict")
+                .path("/api/v1/auth")
+                .maxAge(Duration.ofDays(7))
+                .build();
+
+        response.addHeader(
+                HttpHeaders.SET_COOKIE,
+                cookie.toString()
+        );
+    }
+
+    private void clearRefreshTokenCookie(
+            HttpServletResponse response
+    ) {
+        ResponseCookie cookie = ResponseCookie
+                .from(
+                        REFRESH_TOKEN_COOKIE,
+                        ""
+                )
+                .httpOnly(true)
+                .secure(false)
+                .sameSite("Strict")
+                .path("/api/v1/auth")
+                .maxAge(Duration.ZERO)
+                .build();
+
+        response.addHeader(
+                HttpHeaders.SET_COOKIE,
+                cookie.toString()
+        );
     }
 }
