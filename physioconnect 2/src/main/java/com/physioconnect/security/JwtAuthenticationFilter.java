@@ -2,6 +2,7 @@ package com.physioconnect.security;
 
 import com.physioconnect.entity.User;
 import com.physioconnect.repository.UserRepository;
+import com.physioconnect.service.JwtRevocationService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -22,13 +23,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final JwtRevocationService jwtRevocationService;
 
     public JwtAuthenticationFilter(
             JwtService jwtService,
-            UserRepository userRepository
+            UserRepository userRepository,
+            JwtRevocationService jwtRevocationService
     ) {
         this.jwtService = jwtService;
         this.userRepository = userRepository;
+        this.jwtRevocationService = jwtRevocationService;
     }
 
     @Override
@@ -38,7 +42,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String authorizationHeader =
+                request.getHeader(HttpHeaders.AUTHORIZATION);
 
         if (authorizationHeader == null
                 || !authorizationHeader.startsWith("Bearer ")) {
@@ -55,6 +60,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             Claims claims = jwtService.parseAndValidate(token);
+
+            String jti = claims.getId();
+
+            if (jwtRevocationService.isRevoked(jti)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
 
             Long userId = Long.valueOf(claims.getSubject());
 
@@ -75,10 +87,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
 
             authentication.setDetails(
-                    new WebAuthenticationDetailsSource().buildDetails(request)
+                    new WebAuthenticationDetailsSource()
+                            .buildDetails(request)
             );
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            SecurityContextHolder.getContext()
+                    .setAuthentication(authentication);
 
         } catch (JwtException | IllegalArgumentException ex) {
             SecurityContextHolder.clearContext();

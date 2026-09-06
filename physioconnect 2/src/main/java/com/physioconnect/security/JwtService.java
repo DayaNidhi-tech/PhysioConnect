@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 
 @Service
 public class JwtService {
@@ -28,10 +29,15 @@ public class JwtService {
         }
 
         if (secret.getBytes(StandardCharsets.UTF_8).length < 32) {
-            throw new IllegalStateException("JWT_SECRET must be at least 32 bytes long");
+            throw new IllegalStateException(
+                    "JWT_SECRET must be at least 32 bytes long"
+            );
         }
 
-        this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.signingKey = Keys.hmacShaKeyFor(
+                secret.getBytes(StandardCharsets.UTF_8)
+        );
+
         this.accessTokenExpiration = accessTokenExpiration;
     }
 
@@ -40,6 +46,7 @@ public class JwtService {
         Instant expiration = issuedAt.plus(accessTokenExpiration);
 
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(String.valueOf(user.getId()))
                 .claim("role", user.getRole().name())
                 .issuedAt(Date.from(issuedAt))
@@ -64,5 +71,15 @@ public class JwtService {
     public String extractRole(String token) {
         Claims claims = parseAndValidate(token);
         return claims.get("role", String.class);
+    }
+
+    public String extractJti(String token) {
+        Claims claims = parseAndValidate(token);
+        return claims.getId();
+    }
+
+    public Instant extractExpiration(String token) {
+        Claims claims = parseAndValidate(token);
+        return claims.getExpiration().toInstant();
     }
 }

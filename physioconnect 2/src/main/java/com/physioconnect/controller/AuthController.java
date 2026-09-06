@@ -11,14 +11,14 @@ import com.physioconnect.entity.User;
 import com.physioconnect.security.JwtService;
 import com.physioconnect.security.UserPrincipal;
 import com.physioconnect.service.AuthService;
+import com.physioconnect.service.JwtRevocationService;
 import com.physioconnect.service.RefreshTokenService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -38,17 +38,20 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final JwtRevocationService jwtRevocationService;
 
     public AuthController(
             AuthService authService,
             AuthenticationManager authenticationManager,
             JwtService jwtService,
-            RefreshTokenService refreshTokenService
+            RefreshTokenService refreshTokenService,
+            JwtRevocationService jwtRevocationService
     ) {
         this.authService = authService;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
+        this.jwtRevocationService = jwtRevocationService;
     }
 
     @PostMapping("/register")
@@ -82,7 +85,9 @@ public class AuthController {
                 user.getEmail()
         );
 
-        return ResponseEntity.ok(ApiResponse.success(profile));
+        return ResponseEntity.ok(
+                ApiResponse.success(profile)
+        );
     }
 
     @PostMapping("/login")
@@ -90,9 +95,7 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request,
             HttpServletResponse response
     ) {
-        String email = request.email()
-                .trim()
-                .toLowerCase();
+        String email = request.email().trim().toLowerCase();
 
         Authentication authentication =
                 authenticationManager.authenticate(
@@ -174,11 +177,12 @@ public class AuthController {
         User user =
                 authService.getByEmail(principal.getUsername());
 
-        AuthResponse.Profile profile = new AuthResponse.Profile(
-                user.getId(),
-                user.getFullName(),
-                user.getEmail()
-        );
+        AuthResponse.Profile profile =
+                new AuthResponse.Profile(
+                        user.getId(),
+                        user.getFullName(),
+                        user.getEmail()
+                );
 
         return ResponseEntity.ok(
                 ApiResponse.success(profile)
@@ -192,9 +196,41 @@ public class AuthController {
                     required = false
             )
             String rawRefreshToken,
+
+            @RequestHeader(
+                    value = HttpHeaders.AUTHORIZATION,
+                    required = false
+            )
+            String authorizationHeader,
+
             HttpServletResponse response
     ) {
         refreshTokenService.revoke(rawRefreshToken);
+
+        if (authorizationHeader != null
+                && authorizationHeader.startsWith("Bearer ")) {
+
+            String accessToken =
+                    authorizationHeader.substring(7).trim();
+
+            if (!accessToken.isEmpty()) {
+                try {
+                    String jti =
+                            jwtService.extractJti(accessToken);
+
+                    var expiration =
+                            jwtService.extractExpiration(accessToken);
+
+                    jwtRevocationService.revoke(
+                            jti,
+                            expiration
+                    );
+
+                } catch (RuntimeException ignored) {
+                    // Invalid access tokens are already unusable.
+                }
+            }
+        }
 
         clearRefreshTokenCookie(response);
 
@@ -207,8 +243,7 @@ public class AuthController {
             HttpServletResponse response,
             String token
     ) {
-        ResponseCookie cookie = ResponseCookie
-                .from(
+        ResponseCookie cookie = ResponseCookie.from(
                         REFRESH_TOKEN_COOKIE,
                         token
                 )
@@ -228,8 +263,7 @@ public class AuthController {
     private void clearRefreshTokenCookie(
             HttpServletResponse response
     ) {
-        ResponseCookie cookie = ResponseCookie
-                .from(
+        ResponseCookie cookie = ResponseCookie.from(
                         REFRESH_TOKEN_COOKIE,
                         ""
                 )
