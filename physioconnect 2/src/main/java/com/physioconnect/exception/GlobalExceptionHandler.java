@@ -1,5 +1,7 @@
 package com.physioconnect.exception;
 
+import com.physioconnect.dto.ApiError;
+import com.physioconnect.dto.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -10,58 +12,91 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
-import java.util.Map;
-
-/**
- * Single, consistent error shape returned to REST clients.
- * Keeps stack traces server-side and returns a stable JSON envelope.
- */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final Logger log =
+            LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiError> handleNotFound(ResourceNotFoundException ex) {
-        return build(HttpStatus.NOT_FOUND, ex.getMessage(), null);
+    public ResponseEntity<ApiResponse<Void>> handleNotFound(
+            ResourceNotFoundException ex
+    ) {
+        return build(
+                HttpStatus.NOT_FOUND,
+                "RESOURCE_NOT_FOUND",
+                ex.getMessage()
+        );
     }
 
     @ExceptionHandler(BadRequestException.class)
-    public ResponseEntity<ApiError> handleBadRequest(BadRequestException ex) {
-        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+    public ResponseEntity<ApiResponse<Void>> handleBadRequest(
+            BadRequestException ex
+    ) {
+        return build(
+                HttpStatus.BAD_REQUEST,
+                "BAD_REQUEST",
+                ex.getMessage()
+        );
     }
 
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ApiError> handleAuthentication(AuthenticationException ex) {
-        // Don't leak the password/credential reason to the client.
-        return build(HttpStatus.UNAUTHORIZED, "Invalid credentials", null);
+    public ResponseEntity<ApiResponse<Void>> handleAuthentication(
+            AuthenticationException ex
+    ) {
+        return build(
+                HttpStatus.UNAUTHORIZED,
+                "UNAUTHORIZED",
+                "Invalid credentials"
+        );
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex) {
-        return build(HttpStatus.FORBIDDEN, "You do not have permission to perform this action", null);
+    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(
+            AccessDeniedException ex
+    ) {
+        return build(
+                HttpStatus.FORBIDDEN,
+                "FORBIDDEN",
+                "You do not have permission to perform this action"
+        );
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex) {
-        Map<String, String> fieldErrors = new LinkedHashMap<>();
-        ex.getBindingResult().getFieldErrors().forEach(err ->
-                fieldErrors.putIfAbsent(err.getField(), err.getDefaultMessage()));
-        return build(HttpStatus.BAD_REQUEST, "Validation failed", fieldErrors);
+    public ResponseEntity<ApiResponse<Void>> handleValidation(
+            MethodArgumentNotValidException ex
+    ) {
+        return build(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                "Validation failed"
+        );
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiError> handleUnexpected(Exception ex) {
+    public ResponseEntity<ApiResponse<Void>> handleUnexpected(
+            Exception ex
+    ) {
         log.error("Unhandled exception", ex);
-        return build(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred", null);
+
+        return build(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "INTERNAL_SERVER_ERROR",
+                "An unexpected error occurred"
+        );
     }
 
-    private ResponseEntity<ApiError> build(HttpStatus status, String message, Map<String, String> fieldErrors) {
-        return ResponseEntity.status(status)
-                .body(new ApiError(status.value(), message, LocalDateTime.now(), fieldErrors));
+    private ResponseEntity<ApiResponse<Void>> build(
+            HttpStatus status,
+            String code,
+            String message
+    ) {
+        return ResponseEntity
+                .status(status)
+                .body(
+                        ApiResponse.failure(
+                                new ApiError(code, message)
+                        )
+                );
     }
-
-    public record ApiError(int status, String message, LocalDateTime timestamp, Map<String, String> fieldErrors) {}
 }

@@ -5,6 +5,7 @@ import java.util.Map;
 public record ApiResponse<T>(
         boolean success,
         T data,
+        String message,
         ApiError error,
         Map<String, Object> meta
 ) {
@@ -13,6 +14,7 @@ public record ApiResponse<T>(
         return new ApiResponse<>(
                 true,
                 data,
+                "Request successful",
                 null,
                 null
         );
@@ -25,6 +27,7 @@ public record ApiResponse<T>(
         return new ApiResponse<>(
                 true,
                 data,
+                "Request successful",
                 null,
                 meta
         );
@@ -33,6 +36,7 @@ public record ApiResponse<T>(
     public static <T> ApiResponse<T> failure(ApiError error) {
         return new ApiResponse<>(
                 false,
+                null,
                 null,
                 error,
                 null
