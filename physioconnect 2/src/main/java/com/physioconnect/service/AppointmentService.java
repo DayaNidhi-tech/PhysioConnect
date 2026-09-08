@@ -27,7 +27,6 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -237,9 +236,7 @@ public class AppointmentService {
 
         ensurePatientOwnsAppointment(principal, appointment);
         ensureCancellable(appointment);
-
-        LocalDateTime scheduledAt = getScheduledAt(appointment);
-        ensureCancellationWindow(scheduledAt);
+        ensureCancellationWindow(getScheduledAt(appointment));
 
         releaseSlot(appointment.getSlot());
         appointment.setStatus(AppointmentStatus.CANCELLED);
@@ -264,8 +261,7 @@ public class AppointmentService {
             throw new BadRequestException("Maximum of 2 reschedules has been reached");
         }
 
-        LocalDateTime oldScheduledAt = getScheduledAt(appointment);
-        ensureCancellationWindow(oldScheduledAt);
+        ensureCancellationWindow(getScheduledAt(appointment));
 
         Long oldSlotId = appointment.getSlot().getId();
         if (oldSlotId.equals(request.slotId())) {
@@ -330,9 +326,8 @@ public class AppointmentService {
         releaseSlot(oldSlot);
 
         if (appointment.getStatus() == AppointmentStatus.PENDING_PAYMENT) {
-            LocalDateTime holdExpiresAt = now.plusMinutes(HOLD_MINUTES);
             newSlot.setStatus(SlotStatus.HELD);
-            newSlot.setHeldUntil(holdExpiresAt);
+            newSlot.setHeldUntil(now.plusMinutes(HOLD_MINUTES));
         } else {
             newSlot.setStatus(SlotStatus.BOOKED);
             newSlot.setHeldUntil(null);
@@ -419,9 +414,11 @@ public class AppointmentService {
     }
 
     private void ensureCancellationWindow(LocalDateTime scheduledAt) {
-        LocalDateTime now = LocalDateTime.now();
-        if (!scheduledAt.isAfter(now.plusHours(CANCELLATION_CUTOFF_HOURS))) {
-            throw new BadRequestException("Appointments can only be cancelled or rescheduled at least 4 hours before the scheduled time");
+        LocalDateTime cutoff = LocalDateTime.now().plusHours(CANCELLATION_CUTOFF_HOURS);
+        if (scheduledAt.isBefore(cutoff)) {
+            throw new BadRequestException(
+                    "Appointments can only be cancelled or rescheduled at least 4 hours before the scheduled time"
+            );
         }
     }
 
