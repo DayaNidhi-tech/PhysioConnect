@@ -40,7 +40,6 @@ public class Appointment {
     @JoinColumn(name = "service_id", nullable = false)
     private PhysioService service;
 
-    // 1:1 at booking time - each slot maps to exactly one appointment
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "slot_id", nullable = false, unique = true)
     private TimeSlot slot;
@@ -53,11 +52,15 @@ public class Appointment {
     @Column(name = "reason_for_visit", columnDefinition = "TEXT")
     private String reasonForVisit;
 
-   @Column(name = "medical_history_notes", columnDefinition = "TEXT")
+    @Column(name = "medical_history_notes", columnDefinition = "TEXT")
     private String medicalHistoryNotes;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
+
+    @Builder.Default
+    @Column(name = "reschedule_count", nullable = false)
+    private Integer rescheduleCount = 0;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
