@@ -3,6 +3,8 @@ package com.physioconnect.controller;
 import com.physioconnect.dto.ApiResponse;
 import com.physioconnect.dto.AppointmentResponse;
 import com.physioconnect.dto.CreateAppointmentRequest;
+import com.physioconnect.dto.RescheduleAppointmentRequest;
+import com.physioconnect.dto.UpdateAppointmentStatusRequest;
 import com.physioconnect.security.UserPrincipal;
 import com.physioconnect.service.AppointmentService;
 import jakarta.validation.Valid;
@@ -13,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -71,6 +74,45 @@ public class AppointmentController {
     ) {
         return ResponseEntity.ok(
                 ApiResponse.success(appointmentService.getAppointment(principal, id))
+        );
+    }
+
+    @PatchMapping("/{id}/cancel")
+    @PreAuthorize("hasRole('PATIENT')")
+    public ResponseEntity<ApiResponse<AppointmentResponse>> cancelAppointment(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success(appointmentService.cancelAppointment(principal, id))
+        );
+    }
+
+    @PatchMapping("/{id}/reschedule")
+    @PreAuthorize("hasRole('PATIENT')")
+    public ResponseEntity<ApiResponse<AppointmentResponse>> rescheduleAppointment(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @Valid @RequestBody RescheduleAppointmentRequest request
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        appointmentService.rescheduleAppointment(principal, id, request)
+                )
+        );
+    }
+
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
+    public ResponseEntity<ApiResponse<AppointmentResponse>> updateAppointmentStatus(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateAppointmentStatusRequest request
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        appointmentService.updateAppointmentStatus(principal, id, request)
+                )
         );
     }
 }
