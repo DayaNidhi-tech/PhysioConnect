@@ -13,8 +13,10 @@ import com.physioconnect.repository.LocationRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -53,6 +55,7 @@ public class DoctorAvailabilityService {
             throw new ResourceNotFoundException("One or more service locations were not found");
         }
 
+        Map<Long, Location> locationsById = new HashMap<>();
         for (Location location : locations) {
             if (!Boolean.TRUE.equals(location.getIsActive())) {
                 throw new BadRequestException("Only active service locations can be used for availability");
@@ -60,6 +63,7 @@ public class DoctorAvailabilityService {
             if (doctor.getLocations() == null || !doctor.getLocations().contains(location)) {
                 throw new BadRequestException("Doctor is not assigned to the selected service location");
             }
+            locationsById.put(location.getId(), location);
         }
 
         availabilityRepository.deleteByDoctorId(doctorId);
@@ -67,10 +71,7 @@ public class DoctorAvailabilityService {
         List<DoctorAvailability> availability = request.availability().stream()
                 .map(entry -> DoctorAvailability.builder()
                         .doctor(doctor)
-                        .location(locations.stream()
-                                .filter(location -> location.getId().equals(entry.locationId()))
-                                .findFirst()
-                                .orElseThrow())
+                        .location(locationsById.get(entry.locationId()))
                         .dayOfWeek(entry.dayOfWeek())
                         .startTime(entry.startTime())
                         .endTime(entry.endTime())
@@ -94,6 +95,26 @@ public class DoctorAvailabilityService {
                 .stream()
                 .map(DoctorAvailabilityResponse::from)
                 .toList();
+    }
+
+    @Transactional
+    public List<DoctorAvailabilityResponse> setWeeklyAvailabilityByUserId(
+            Long userId,
+            DoctorAvailabilityRequest request
+    ) {
+        Doctor doctor = getDoctorByUserId(userId);
+        return setWeeklyAvailability(doctor.getId(), request);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DoctorAvailabilityResponse> getWeeklyAvailabilityByUserId(Long userId) {
+        Doctor doctor = getDoctorByUserId(userId);
+        return getWeeklyAvailability(doctor.getId());
+    }
+
+    private Doctor getDoctorByUserId(Long userId) {
+        return doctorRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor profile not found"));
     }
 
     private void validateEntry(DoctorAvailabilityRequest.AvailabilityEntry entry) {
