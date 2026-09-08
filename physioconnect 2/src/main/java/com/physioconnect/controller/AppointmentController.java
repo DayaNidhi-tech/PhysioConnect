@@ -14,7 +14,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -73,21 +72,5 @@ public class AppointmentController {
         return ResponseEntity.ok(
                 ApiResponse.success(appointmentService.getAppointment(principal, id))
         );
-    }
-
-    @PatchMapping("/{id}/reschedule")
-    @PreAuthorize("hasRole('PATIENT')")
-    public ResponseEntity<ApiResponse<Void>> reschedulePlaceholder(
-            @PathVariable Long id
-    ) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
-    }
-
-    @PatchMapping("/{id}/cancel")
-    @PreAuthorize("hasRole('PATIENT')")
-    public ResponseEntity<ApiResponse<Void>> cancelPlaceholder(
-            @PathVariable Long id
-    ) {
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
     }
 }
