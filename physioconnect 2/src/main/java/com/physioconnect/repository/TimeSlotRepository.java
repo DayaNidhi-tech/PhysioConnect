@@ -15,6 +15,12 @@ public interface TimeSlotRepository extends JpaRepository<TimeSlot, Long> {
 
     List<TimeSlot> findByDoctorIdAndSlotDateAndStatus(Long doctorId, LocalDate slotDate, SlotStatus status);
 
+    List<TimeSlot> findByDoctorIdAndLocationIdAndSlotDateOrderByStartTimeAsc(
+            Long doctorId,
+            Long locationId,
+            LocalDate slotDate
+    );
+
     // Pessimistic lock as a belt-and-braces option alongside @Version
     // optimistic locking, used when placing a hold on a slot.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
