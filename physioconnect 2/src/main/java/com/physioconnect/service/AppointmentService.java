@@ -313,8 +313,9 @@ public class AppointmentService {
                         List.of(AppointmentStatus.PENDING_PAYMENT, AppointmentStatus.CONFIRMED)
                 );
 
+        final Long currentAppointmentId = appointment.getId();
         boolean conflictingAppointment = activeAppointments.stream()
-                .filter(existing -> !existing.getId().equals(appointment.getId()))
+                .filter(existing -> !existing.getId().equals(currentAppointmentId))
                 .anyMatch(existing -> getScheduledAt(existing).equals(newScheduledAt));
 
         if (conflictingAppointment) {
