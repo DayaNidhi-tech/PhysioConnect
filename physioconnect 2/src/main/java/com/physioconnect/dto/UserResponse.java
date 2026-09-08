@@ -12,6 +12,7 @@ public record UserResponse(
         String fullName,
         String phone,
         Role role,
+        boolean active,
         boolean emailVerified
 ) {
     public static UserResponse from(User user) {
@@ -21,6 +22,7 @@ public record UserResponse(
                 user.getFullName(),
                 user.getPhone(),
                 user.getRole(),
+                Boolean.TRUE.equals(user.getIsActive()),
                 Boolean.TRUE.equals(user.getIsEmailVerified())
         );
     }
