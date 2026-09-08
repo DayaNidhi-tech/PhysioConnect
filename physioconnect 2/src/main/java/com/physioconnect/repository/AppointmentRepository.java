@@ -12,7 +12,7 @@ import java.util.Optional;
 
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
     Optional<Appointment> findByReferenceNo(String referenceNo);
-    Page<Appointment> findByPatientId(Pageable pageable, Long patientId);
+    Page<Appointment> findByPatientId(Long patientId, Pageable pageable);
     Page<Appointment> findByPatientIdAndStatus(Long patientId, AppointmentStatus status, Pageable pageable);
     Page<Appointment> findByDoctorIdAndStatus(Long doctorId, AppointmentStatus status, Pageable pageable);
     List<Appointment> findByPatientIdAndDoctorIdAndStatusIn(
