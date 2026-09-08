@@ -49,3 +49,8 @@ application-prod.properties
 # ===== Auto-generated upgrade/migration tooling (not product code) =====
 .github/modernize/
 .github/java-upgrade/
+# ===== Local temporary / test helper files =====
+target_backup/
+DbQueryUser.java
+auth_flow_check.ps1
+cp.txt
