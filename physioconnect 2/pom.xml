@@ -23,6 +23,7 @@
         <java.version>25</java.version>
         <maven.compiler.release>25</maven.compiler.release>
         <lombok.version>1.18.46</lombok.version>
+        <razorpay.version>1.4.8</razorpay.version>
     </properties>
 
     <dependencies>
@@ -79,6 +80,13 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
+        <!-- Razorpay -->
+        <dependency>
+            <groupId>com.razorpay</groupId>
+            <artifactId>razorpay-java</artifactId>
+            <version>${razorpay.version}</version>
         </dependency>
 
         <!-- Lombok -->
