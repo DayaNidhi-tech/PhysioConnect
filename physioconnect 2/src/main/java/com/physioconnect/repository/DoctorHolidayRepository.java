@@ -8,4 +8,5 @@ import java.util.List;
 
 public interface DoctorHolidayRepository extends JpaRepository<DoctorHoliday, Long> {
     List<DoctorHoliday> findByDoctorIdAndHolidayDate(Long doctorId, LocalDate date);
+    List<DoctorHoliday> findByDoctorIdOrderByHolidayDateAsc(Long doctorId);
 }
