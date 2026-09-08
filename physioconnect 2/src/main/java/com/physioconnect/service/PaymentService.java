@@ -99,7 +99,8 @@ public class PaymentService {
             orderRequest.put("partial_payment", false);
 
             Order order = razorpayClient.orders.create(orderRequest);
-            String orderId = order.get("id");
+            Object orderIdValue = order.get("id");
+            String orderId = orderIdValue == null ? null : orderIdValue.toString();
 
             if (orderId == null || orderId.isBlank()) {
                 throw new BadRequestException("Razorpay did not return an order ID");
@@ -122,11 +123,10 @@ public class PaymentService {
     }
 
     private void ensurePatientOwnsAppointment(UserPrincipal principal, Appointment appointment) {
-        if (!"ROLE_PATIENT".equals(principal.getAuthorities().stream()
-                .map(authority -> authority.getAuthority())
-                .findFirst()
-                .orElse(null))
-                || !appointment.getPatient().getUser().getId().equals(principal.getId())) {
+        boolean patientRole = principal.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_PATIENT".equals(authority.getAuthority()));
+
+        if (!patientRole || !appointment.getPatient().getUser().getId().equals(principal.getId())) {
             throw new BadRequestException("You are not authorized to pay for this appointment");
         }
     }
