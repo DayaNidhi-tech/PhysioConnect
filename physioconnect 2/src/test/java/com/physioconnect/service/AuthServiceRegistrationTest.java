@@ -3,6 +3,7 @@ package com.physioconnect.service;
 import com.physioconnect.dto.RegisterRequest;
 import com.physioconnect.entity.User;
 import com.physioconnect.repository.EmailVerificationTokenRepository;
+import com.physioconnect.repository.PatientRepository;
 import com.physioconnect.repository.RefreshTokenRepository;
 import com.physioconnect.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +23,9 @@ class AuthServiceRegistrationTest {
     private UserRepository userRepository;
 
     @Autowired
+    private PatientRepository patientRepository;
+
+    @Autowired
     private EmailVerificationTokenRepository emailVerificationTokenRepository;
 
     @Autowired
@@ -31,6 +35,7 @@ class AuthServiceRegistrationTest {
     void cleanUp() {
         emailVerificationTokenRepository.deleteAll();
         refreshTokenRepository.deleteAll();
+        patientRepository.deleteAll();
         userRepository.deleteAll();
     }
 

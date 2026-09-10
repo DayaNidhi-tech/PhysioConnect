@@ -2,10 +2,12 @@ package com.physioconnect.service;
 
 import com.physioconnect.dto.RegisterRequest;
 import com.physioconnect.entity.EmailVerificationToken;
+import com.physioconnect.entity.Patient;
 import com.physioconnect.entity.User;
 import com.physioconnect.exception.BadRequestException;
 import com.physioconnect.exception.ResourceNotFoundException;
 import com.physioconnect.repository.EmailVerificationTokenRepository;
+import com.physioconnect.repository.PatientRepository;
 import com.physioconnect.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,6 +27,7 @@ public class AuthService {
     private static final long TOKEN_TTL_HOURS = 24;
 
     private final UserRepository userRepository;
+    private final PatientRepository patientRepository;
     private final EmailVerificationTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
@@ -34,12 +37,14 @@ public class AuthService {
 
     public AuthService(
             UserRepository userRepository,
+            PatientRepository patientRepository,
             EmailVerificationTokenRepository tokenRepository,
             PasswordEncoder passwordEncoder,
             MailService mailService,
             @Value("${app.base-url}") String baseUrl
     ) {
         this.userRepository = userRepository;
+        this.patientRepository = patientRepository;
         this.tokenRepository = tokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
@@ -83,14 +88,19 @@ public class AuthService {
                         passwordEncoder.encode(request.password())
                 )
                 .role(request.effectiveRole())
-
-                // Account remains inactive until email verification.
                 .isActive(false)
-
                 .isEmailVerified(false)
                 .build();
 
         user = userRepository.save(user);
+
+        if (user.getRole().name().equals("PATIENT")) {
+            Patient patient = Patient.builder()
+                    .user(user)
+                    .build();
+
+            patientRepository.save(patient);
+        }
 
         sendVerificationEmail(user);
 
@@ -152,7 +162,6 @@ public class AuthService {
 
         User user = token.getUser();
 
-        // Email verification completes account activation.
         user.setIsEmailVerified(true);
         user.setIsActive(true);
 
