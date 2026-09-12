@@ -12,6 +12,16 @@
 - Multi-location service coverage: supported through doctor-location assignments
 - Razorpay: Java SDK dependency and server-side test-order flow implemented
 
+## Development Progress — 2026-09-12
+
+- Verified the patient email-verification flow against the running Spring Boot application.
+- Verified successful patient login and JWT issuance after email verification.
+- Inspected the live MySQL schema and confirmed the appointment-related tables and relationships are present.
+- Identified and fixed the patient-profile creation gap in patient registration.
+- Updated the registration test cleanup so Patient records are removed before User records.
+- Confirmed the backend test suite passes after the registration/profile fix.
+- Kept local Razorpay credentials and JWT secrets outside the repository.
+
 ## Next Development Steps
 
 1. Populate valid development doctor, location, and service data.
